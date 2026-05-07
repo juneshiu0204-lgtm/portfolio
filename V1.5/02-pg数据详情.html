@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PostGIS 数据详情 - 四维云行业通用软件</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1890ff',
+                        header: '#ffffff',
+                        sidebar: '#001529',
+                        main: '#f0f2f5',
+                        border: '#e8e8e8'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { min-width: 1200px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .custom-input {
+            border: 1px solid #d9d9d9;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+        .custom-input:focus {
+            border-color: #40a9ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+            outline: none;
+        }
+        .custom-label {
+            width: 140px;
+            color: rgba(0, 0, 0, 0.85);
+            font-size: 14px;
+        }
+
+        .help-text {
+            color: rgba(0, 0, 0, 0.45);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .section-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: rgba(0, 0, 0, 0.85);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col font-sans text-sm text-gray-700 bg-main overflow-hidden">
+
+    <!-- 顶部：头部导航 -->
+    <header class="h-16 bg-header text-gray-800 flex items-center justify-between px-6 flex-shrink-0 shadow-sm z-20 border-b border-gray-200">
+        <div class="flex items-center gap-2.5 w-72">
+            <div class="w-10 h-10 text-primary flex items-center justify-center text-[34px]">
+                <i class="fa-solid fa-earth-americas"></i>
+            </div>
+            <div class="flex flex-col justify-center">
+                <span class="text-[17px] font-black tracking-wide text-gray-800 leading-tight">四维云行业通用软件</span>
+                <span class="text-[11px] font-bold tracking-[0.25em] text-gray-800 leading-tight mt-0.5">时空数据管理</span>
+            </div>
+        </div>
+
+        <nav class="flex-1 px-8 h-full">
+            <ul class="flex h-full items-center gap-10 font-medium text-[16px]">
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据汇聚</li>
+                <li class="h-full flex items-center text-primary cursor-pointer px-3 border-b-2 border-primary bg-blue-50/50 transition-colors font-semibold">数据管理</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据查询</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据处理</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">服务管理</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据可视化</li>
+            </ul>
+        </nav>
+
+        <div class="flex items-center gap-6">
+            <a href="#" class="text-primary transition-colors flex items-center gap-1.5 text-[14px]">
+                更多 <i class="fa-solid fa-angle-down text-[10px]"></i>
+            </a>
+            <div class="flex items-center gap-3 cursor-pointer hover:bg-gray-50 py-1.5 px-3 rounded-full border border-transparent hover:border-gray-200 transition-all">
+                <span class="text-gray-700 font-medium text-[14px]">admin</span>
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="User" class="w-7 h-7 rounded-full bg-gray-200 border border-gray-300 shadow-sm">
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTENT WRAPPER -->
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- LEFT: Sidebar -->
+        <aside class="w-64 bg-sidebar text-gray-300 border-r border-gray-800 flex flex-col flex-shrink-0 z-10 shadow-lg overflow-y-auto">
+            <div class="py-4">
+                <ul class="flex flex-col w-full">
+                    
+                    <li class="w-full">
+                        <a href="#" class="flex items-center px-6 py-4 hover:text-white transition-colors group">
+                            <i class="fa-solid fa-server w-5 text-center text-gray-400 group-hover:text-white mr-3"></i>
+                            <span class="text-[14px] tracking-wide">服务发布</span>
+                        </a>
+                    </li>
+
+                    <li class="w-full">
+                        <div class="flex items-center justify-between px-6 py-4 hover:text-white cursor-pointer transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-layer-group w-5 text-center text-gray-400 group-hover:text-white"></i>
+                                <span class="text-[14px] tracking-wide">空间服务管理</span>
+                            </div>
+                            <i class="fa-solid fa-angle-down text-xs text-gray-500 group-hover:text-gray-300"></i>
+                        </div>
+                        <ul class="bg-[#000c17] py-2">
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">全部服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">影像服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-primary bg-primary/10 border-r-4 border-primary font-medium tracking-wide">矢量/MVT服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">地形服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">白模服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">实景三维服务</a></li>
+                        </ul>
+                    </li>
+
+                    <li class="w-full">
+                        <a href="#" class="flex items-center px-6 py-4 hover:text-white transition-colors group">
+                            <i class="fa-solid fa-paint-brush w-5 text-center text-gray-400 group-hover:text-white mr-3"></i>
+                            <span class="text-[14px] tracking-wide">样式管理</span>
+                        </a>
+                    </li>
+
+                    <li class="w-full">
+                        <a href="#" class="flex items-center px-6 py-4 hover:text-white transition-colors group">
+                            <i class="fa-solid fa-object-group w-5 text-center text-gray-400 group-hover:text-white mr-3"></i>
+                            <span class="text-[14px] tracking-wide">服务组管理</span>
+                        </a>
+                    </li>
+
+                </ul>
+            </div>
+        </aside>
+
+        <!-- MAIN: Content Area -->
+        <main class="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth bg-[#f0f2f5]">
+            
+            <!-- Breadcrumb / Page Title -->
+            <div class="mb-5 flex items-center justify-between">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800">PostGIS 数据详情</h1>
+                </div>
+                <button class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 px-4 py-1.5 rounded text-xs flex items-center shadow-sm transition-colors">
+                    <i class="fa-solid fa-arrow-left mr-1.5"></i> 返回
+                </button>
+            </div>
+
+            <!-- 数据信息卡片 -->
+            <section class="bg-white rounded-md shadow-sm border border-gray-200 mb-6">
+                <div class="px-5 py-4 border-b border-gray-100">
+                    <h2 class="font-bold text-gray-800 text-base">基本信息</h2>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-4">
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">数据名称：</span>
+                                <span class="text-gray-800 font-medium text-sm">buildings_2024</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">数据目录：</span>
+                                <span class="text-gray-800 text-sm">/矢量数据/城市建筑</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">数据库：</span>
+                                <span class="text-gray-800 text-sm">siwei_spatial</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">schema：</span>
+                                <span class="text-gray-800 text-sm">public</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">数据表：</span>
+                                <span class="text-gray-800 text-sm">buildings_2024</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">数据格式：</span>
+                                <span class="text-gray-800 text-sm">PostGIS</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">数据大小：</span>
+                                <span class="text-gray-400 text-sm">6 Kb</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">获取时间：</span>
+                                <span class="text-gray-800 text-sm">2026-03-21 14:18:32</span>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">资产标签：</span>
+                                <span class="text-gray-800 text-sm">建筑, 城市, 矢量, 基础数据</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">许可证：</span>
+                                <span class="text-gray-800 text-sm">CC-BY-4.0</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">坐标系：</span>
+                                <span class="text-gray-800 text-sm font-mono">EPSG:4326</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">几何类型：</span>
+                                <span class="text-gray-800 text-sm">面</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">行数：</span>
+                                <span class="text-gray-800 font-mono text-sm">398</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">字符集：</span>
+                                <span class="text-gray-800 text-sm">UTF-8</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 空间信息 -->
+            <section class="bg-white rounded-md shadow-sm border border-gray-200 mb-6">
+                <div class="px-5 py-4 border-b border-gray-100">
+                    <h2 class="font-bold text-gray-800 text-base">空间信息</h2>
+                </div>
+                <div class="p-6">
+                    <div class="bg-gray-50 rounded border border-gray-100 p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-3">
+                                <div class="flex items-center">
+                                    <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">最小坐标：</span>
+                                    <span class="text-gray-800 text-sm">116.3590, 39.9050</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">最大坐标：</span>
+                                    <span class="text-gray-800 text-sm">116.4200, 39.9450</span>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex items-center">
+                                    <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">中心点：</span>
+                                    <span class="text-gray-800 text-sm">116.3895, 39.9250</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">面积：</span>
+                                    <span class="text-gray-800 text-sm">12.5 km²</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 表字段 -->
+            <section class="bg-white rounded-md shadow-sm border border-gray-200 mb-6">
+                <div class="px-5 py-4 border-b border-gray-100 flex items-center">
+                    <div class="w-1 h-4 bg-primary rounded-full mr-2"></div>
+                    <div class="flex items-center">
+                        <h2 class="font-bold text-gray-800 text-sm">表字段</h2>
+                    </div>
+                </div>
+
+                <div class="p-0 overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 text-xs text-gray-500 border-b border-gray-200">
+                                <th class="py-3 px-5 font-medium">字段名</th>
+                                <th class="py-3 px-5 font-medium">字段中文名</th>
+                                <th class="py-3 px-5 font-medium">字段类型</th>
+                                <th class="py-3 px-5 font-medium">长度</th>
+                                <th class="py-3 px-5 font-medium">精度</th>
+                                <th class="py-3 px-5 font-medium">是否主键</th>
+                                <th class="py-3 px-5 font-medium">主键类型</th>
+                                <th class="py-3 px-5 font-medium">可为空</th>
+                                <th class="py-3 px-5 font-medium">描述</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-xs text-gray-700">
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                <td class="py-3 px-5">id</td>
+                                <td class="py-3 px-5">ID</td>
+                                <td class="py-3 px-5"><span class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded">字符串</span></td>
+                                <td class="py-3 px-5">10</td>
+                                <td class="py-3 px-5">-</td>
+                                <td class="py-3 px-5">是</td>
+                                <td class="py-3 px-5">自增</td>
+                                <td class="py-3 px-5">否</td>
+                                <td class="py-3 px-5">唯一标识符</td>
+                            </tr>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                <td class="py-3 px-5">geom</td>
+                                <td class="py-3 px-5">几何图形</td>
+                                <td class="py-3 px-5"><span class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded">Geometry</span></td>
+                                <td class="py-3 px-5">-</td>
+                                <td class="py-3 px-5">-</td>
+                                <td class="py-3 px-5">否</td>
+                                <td class="py-3 px-5">空</td>
+                                <td class="py-3 px-5">否</td>
+                                <td class="py-3 px-5">建筑轮廓几何数据</td>
+                            </tr>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                <td class="py-3 px-5">name</td>
+                                <td class="py-3 px-5">名称</td>
+                                <td class="py-3 px-5"><span class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded">字符串</span></td>
+                                <td class="py-3 px-5">255</td>
+                                <td class="py-3 px-5">-</td>
+                                <td class="py-3 px-5">否</td>
+                                <td class="py-3 px-5">空</td>
+                                <td class="py-3 px-5">是</td>
+                                <td class="py-3 px-5">建筑名称</td>
+                            </tr>
+                            <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                <td class="py-3 px-5">type</td>
+                                <td class="py-3 px-5">建筑类型</td>
+                                <td class="py-3 px-5"><span class="text-blue-600 bg-blue-50 px-2 py-0.5 rounded">字符串</span></td>
+                                <td class="py-3 px-5">50</td>
+                                <td class="py-3 px-5">-</td>
+                                <td class="py-3 px-5">否</td>
+                                <td class="py-3 px-5">空</td>
+                                <td class="py-3 px-5">是</td>
+                                <td class="py-3 px-5">建筑类型</td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="py-3 px-5">height</td>
+                                <td class="py-3 px-5">高度</td>
+                                <td class="py-3 px-5"><span class="text-green-600 bg-green-50 px-2 py-0.5 rounded">数值</span></td>
+                                <td class="py-3 px-5">8</td>
+                                <td class="py-3 px-5">2</td>
+                                <td class="py-3 px-5">否</td>
+                                <td class="py-3 px-5">空</td>
+                                <td class="py-3 px-5">是</td>
+                                <td class="py-3 px-5">建筑高度</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 数据预览 -->
+            <section class="bg-white rounded-md shadow-sm border border-gray-200 mb-6">
+                <div class="px-5 py-4 border-b border-gray-100">
+                    <h2 class="font-bold text-gray-800 text-base">数据预览</h2>
+                </div>
+                <div class="p-6">
+                    <div class="bg-gray-50 rounded border border-gray-100 p-4 h-64 flex items-center justify-center">
+                        <div class="text-center text-gray-400">
+                            <i class="fa-solid fa-map text-4xl mb-3"></i>
+                            <p class="text-sm">地图预览区域</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据查询 - 四维云行业通用软件</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1890ff',
+                        header: '#ffffff',
+                        sidebar: '#001529',
+                        main: '#f0f2f5',
+                        border: '#e8e8e8'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { min-width: 1200px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .custom-input {
+            border: 1px solid #d9d9d9;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+        .custom-input:focus {
+            border-color: #40a9ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+            outline: none;
+        }
+        .custom-label {
+            width: 70px;
+            color: rgba(0, 0, 0, 0.85);
+            font-size: 14px;
+        }
+
+        .help-text {
+            color: rgba(0, 0, 0, 0.45);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .map-container {
+            background-image: url('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}');
+            background-size: cover;
+            background-position: center;
+        }
+
+        .zoom-btn {
+            width: 36px;
+            height: 36px;
+            background: white;
+            border: 1px solid #d9d9d9;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .zoom-btn:hover {
+            background: #f5f5f5;
+            border-color: #40a9ff;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col font-sans text-sm text-gray-700 bg-main overflow-hidden">
+
+    <!-- 顶部：头部导航 -->
+    <header class="h-16 bg-header text-gray-800 flex items-center justify-between px-6 flex-shrink-0 shadow-sm z-20 border-b border-gray-200">
+        <div class="flex items-center gap-2.5 w-72">
+            <div class="w-10 h-10 text-primary flex items-center justify-center text-[34px]">
+                <i class="fa-solid fa-cloud"></i>
+            </div>
+            <div class="flex flex-col justify-center">
+                <span class="text-[17px] font-black tracking-wide text-gray-800 leading-tight">四维云行业通用软件</span>
+                <span class="text-[11px] font-bold tracking-[0.25em] text-gray-800 leading-tight mt-0.5">时空数据管理</span>
+            </div>
+        </div>
+
+        <nav class="flex-1 px-8 h-full">
+            <ul class="flex h-full items-center gap-10 font-medium text-[16px]">
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据汇聚</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据管理</li>
+                <li class="h-full flex items-center text-primary cursor-pointer px-3 border-b-2 border-primary bg-blue-50/50 transition-colors font-semibold">数据查询</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据处理</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">服务管理</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据可视化</li>
+            </ul>
+        </nav>
+
+        <div class="flex items-center gap-6">
+            <span class="text-primary">0420test</span>
+            <a href="#" class="text-primary transition-colors flex items-center gap-1.5 text-[14px]">
+                更多 <i class="fa-solid fa-angle-down text-[10px]"></i>
+            </a>
+            <div class="flex items-center gap-3 cursor-pointer hover:bg-gray-50 py-1.5 px-3 rounded-full border border-transparent hover:border-gray-200 transition-all">
+                <span class="text-gray-700 font-medium text-[14px]">admin</span>
+                <div class="w-7 h-7 rounded-full bg-gray-200 border border-gray-300 shadow-sm flex items-center justify-center">
+                    <i class="fa-solid fa-user text-gray-500"></i>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTENT WRAPPER -->
+    <div class="flex flex-1 overflow-hidden">
+
+        <!-- MAIN: 地图区域 -->
+        <main class="flex-1 relative overflow-hidden">
+            <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('https://webmap.cn/tiles/imagery/10/802/435.jpg'); background-size: cover;">
+                <div class="absolute inset-0" style="background: url('https://webmap.cn/tiles/imagery/10/803/435.jpg') no-repeat right top; background-size: auto 100%;"></div>
+                <div class="absolute inset-0" style="background: url('https://webmap.cn/tiles/imagery/10/802/436.jpg') no-repeat left bottom; background-size: 100% auto;"></div>
+            </div>
+
+            <!-- LEFT: 浮动查询面板 -->
+            <aside class="absolute top-4 left-4 w-[410px] bg-white text-gray-700 rounded-md shadow-lg overflow-y-auto p-6 z-10" style="bottom: 5%;">
+                <!-- 数据查询表单 -->
+                <div id="queryFormContainer">
+                    <!-- 标题和我的查询按钮一行，标题居中，按钮在最右 -->
+                    <div class="flex items-center mb-6">
+                        <div class="flex-1"></div>
+                        <h2 class="text-lg font-semibold text-gray-800">数据查询</h2>
+                        <div class="flex-1 flex justify-end">
+                            <button id="showMyQueriesBtn" class="px-2 py-1 bg-white border border-gray-300 text-gray-600 rounded text-xs hover:bg-gray-50 transition-colors">
+                                <i class="fa-solid fa-history mr-1"></i> 我的查询
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-5">
+                        <div class="flex items-center">
+                            <label class="custom-label flex-shrink-0">查询对象</label>
+                            <div class="flex items-center gap-4 flex-1">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="queryType" checked class="accent-primary">
+                                    <span class="text-sm">数据</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="queryType" class="accent-primary">
+                                    <span class="text-sm">服务</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center">
+                            <label class="custom-label flex-shrink-0">关键词</label>
+                            <div class="flex-1">
+                                <input type="text" placeholder="请输入" class="w-full h-9 px-3 custom-input text-sm" id="keywordInput">
+                            </div>
+                        </div>
+
+                        <div class="flex items-center">
+                            <label class="custom-label flex-shrink-0">数据类型</label>
+                            <div class="flex-1 relative">
+                                <select id="dataTypeSelect" class="w-full h-9 px-3 pr-8 custom-input text-sm appearance-none bg-white">
+                                    <option>请选择</option>
+                                    <option>矢量数据</option>
+                                    <option>影像数据</option>
+                                    <option>地形数据</option>
+                                    <option>三维模型</option>
+                                </select>
+                                <i class="fa-solid fa-angle-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]"></i>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center">
+                            <label class="custom-label flex-shrink-0">数据格式</label>
+                            <div class="flex-1 relative">
+                                <select id="dataFormatSelect" class="w-full h-9 px-3 pr-8 custom-input text-sm appearance-none bg-white">
+                                    <option>请选择</option>
+                                    <option>Shapefile</option>
+                                    <option>GeoJSON</option>
+                                    <option>PostGIS</option>
+                                    <option>TIFF</option>
+                                </select>
+                                <i class="fa-solid fa-angle-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]"></i>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center">
+                            <label class="custom-label flex-shrink-0">资产标签</label>
+                            <div class="flex-1 relative">
+                                <select id="assetTagSelect" class="w-full h-9 px-3 pr-8 custom-input text-sm appearance-none bg-white">
+                                    <option>请选择</option>
+                                    <option>建筑</option>
+                                    <option>道路</option>
+                                    <option>水系</option>
+                                    <option>植被</option>
+                                </select>
+                                <i class="fa-solid fa-angle-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]"></i>
+                            </div>
+                        </div>
+
+                        <div class="space-y-3">
+                            <div class="flex items-center">
+                                <label class="custom-label flex-shrink-0">自定义区域</label>
+                                <div class="flex items-center gap-2 flex-1">
+                                    <button class="px-4 py-1 bg-primary text-white rounded text-sm">区域绘制</button>
+                                    <button class="px-4 py-1 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50">坐标输入</button>
+                                </div>
+                            </div>
+                            <div class="ml-[70px]">
+                                <input id="regionInput" type="text" placeholder="请绘制区域" class="w-full h-8 px-3 custom-input text-sm">
+                            </div>
+                            <div class="flex items-center gap-3 ml-[70px]">
+                                <button class="px-3 py-1 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 hover:border-primary hover:text-primary transition-colors">
+                                    <i class="fa-regular fa-square mr-1"></i>绘制矩形
+                                </button>
+                                <button class="px-3 py-1 bg-primary border border-primary text-white rounded text-sm hover:bg-blue-600 transition-colors">
+                                    <i class="fa-solid fa-draw-polygon mr-1"></i>绘制多边形
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center">
+                            <label class="custom-label flex-shrink-0">获取时间</label>
+                            <div class="relative" style="width: 282px;">
+                                <div class="flex items-center gap-2 border border-gray-200 rounded px-3 bg-white w-full h-9">
+                                    <i class="fa-regular fa-calendar text-gray-400"></i>
+                                    <input id="startDateInput" type="text" placeholder="开始日期" class="flex-1 text-sm border-none outline-none">
+                                    <span class="text-gray-400">至</span>
+                                    <input id="endDateInput" type="text" placeholder="结束日期" class="flex-1 text-sm border-none outline-none">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center">
+                            <label class="custom-label flex-shrink-0">自定义参数</label>
+                            <div class="flex-1">
+                                <button class="text-gray-500 hover:text-primary">
+                                    <i class="fa-solid fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 底部按钮：重置、查询、保存查询 -->
+                    <div class="pt-8 flex items-center justify-center gap-3">
+                        <button class="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors">
+                            重置
+                        </button>
+                        <button class="px-6 py-2 bg-primary hover:bg-blue-600 text-white rounded text-sm transition-colors shadow-sm font-medium">
+                            查询
+                        </button>
+                        <button id="saveQueryBtn" class="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors">
+                            <i class="fa-solid fa-save mr-1"></i> 保存查询
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 我的查询列表 -->
+                <div id="myQueriesContainer" class="hidden">
+                    <div class="flex items-center mb-4">
+                        <button id="backToQueryBtn" class="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors flex items-center gap-1 mr-4">
+                            <i class="fa-solid fa-arrow-left"></i>
+                        </button>
+                        <h2 class="text-lg font-semibold text-gray-800 flex-1 text-center pr-10">我的查询</h2>
+                    </div>
+                    <!-- 筛选行 -->
+                    <div class="flex items-center gap-2 mb-3 p-2 bg-gray-50 rounded border border-gray-200">
+                        <label class="text-xs font-normal text-gray-600 whitespace-nowrap">查询对象：</label>
+                        <div class="flex-1 relative">
+                            <select id="filterQueryType" class="w-full h-6 px-2 custom-input text-xs appearance-none bg-white">
+                                <option value="">全部</option>
+                                <option value="数据">数据</option>
+                                <option value="服务">服务</option>
+                            </select>
+                            <i class="fa-solid fa-angle-down absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[8px]"></i>
+                        </div>
+                        <button id="filterConfirmBtn" class="px-2 py-0.5 bg-primary text-white rounded text-xs hover:bg-blue-600 transition-colors">
+                            确定
+                        </button>
+                        <button id="filterResetBtn" class="px-2 py-0.5 bg-white border border-gray-300 text-gray-600 rounded text-xs hover:bg-gray-50 transition-colors">
+                            重置
+                        </button>
+                    </div>
+                    <div>
+                        <div id="myQueriesList" class="space-y-3">
+                        </div>
+                    </div>
+                    <!-- 分页 -->
+                    <div id="myQueriesPagination" class="flex items-center justify-center gap-2 mt-4 pt-3 border-t border-gray-200">
+                    </div>
+                </div>
+            </aside>
+
+            <div class="absolute right-4 bottom-20 flex flex-col gap-2">
+                <div class="zoom-btn">
+                    <i class="fa-solid fa-magnifying-glass-plus text-gray-600"></i>
+                </div>
+                <div class="zoom-btn">
+                    <i class="fa-solid fa-magnifying-glass-minus text-gray-600"></i>
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- 保存查询弹窗 -->
+    <div id="saveQueryModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl w-[400px] max-w-full mx-4 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-800">保存查询</h3>
+                <button id="closeSaveModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="px-6 py-5">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">查询名称</label>
+                    <input id="queryNameInput" type="text" placeholder="请输入查询名称" class="w-full h-9 px-3 custom-input text-sm">
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+                <button id="cancelSaveQuery" class="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors">
+                    取消
+                </button>
+                <button id="confirmSaveQuery" class="px-6 py-2 bg-primary hover:bg-blue-600 text-white rounded text-sm transition-colors shadow-sm">
+                    确定
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 我的查询弹窗 -->
+    <div id="myQueriesModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl w-[800px] max-w-[90vw] max-h-[80vh] mx-4 flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                <h3 class="text-lg font-semibold text-gray-800">我的查询</h3>
+                <button id="closeMyQueriesModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50 border-b border-gray-200">
+                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">查询名称</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">查询对象</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">查询时间</th>
+                            <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700 w-[140px]">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="myQueriesTableBody">
+                        <tr>
+                            <td colspan="4" class="px-4 py-8 text-center text-gray-400 text-sm">暂无保存的查询记录</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 查询详情弹窗 -->
+    <div id="queryDetailModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl w-[600px] max-w-[90vw] max-h-[80vh] mx-4 flex flex-col overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                <h3 class="text-lg font-semibold text-gray-800">查询详情</h3>
+                <button id="closeDetailModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6">
+                <div class="space-y-4" id="queryDetailContent">
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-end flex-shrink-0">
+                <button id="closeDetailBtn" class="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors">
+                    关闭
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑查询名称弹窗 -->
+    <div id="editQueryModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl w-[400px] max-w-full mx-4 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-800">编辑查询名称</h3>
+                <button id="closeEditModal" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="px-6 py-5">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">查询名称</label>
+                    <input id="editQueryNameInput" type="text" placeholder="请输入查询名称" class="w-full h-9 px-3 custom-input text-sm">
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
+                <button id="cancelEditQuery" class="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors">
+                    取消
+                </button>
+                <button id="confirmEditQuery" class="px-6 py-2 bg-primary hover:bg-blue-600 text-white rounded text-sm transition-colors shadow-sm">
+                    确定
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'swc_saved_queries';
+
+        function getSavedQueries() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveQueries(queries) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(queries));
+        }
+
+        function getCurrentQueryParams() {
+            const queryTypeEls = document.getElementsByName('queryType');
+            let queryType = '数据';
+            for (let el of queryTypeEls) {
+                if (el.checked) {
+                    queryType = el.nextElementSibling.textContent.trim();
+                    break;
+                }
+            }
+
+            const keyword = document.getElementById('keywordInput').value.trim();
+            const dataType = document.getElementById('dataTypeSelect').value;
+            const dataFormat = document.getElementById('dataFormatSelect').value;
+            const assetTag = document.getElementById('assetTagSelect').value;
+            const region = document.getElementById('regionInput').value.trim();
+            const startDate = document.getElementById('startDateInput').value.trim();
+            const endDate = document.getElementById('endDateInput').value.trim();
+
+            return {
+                queryType,
+                keyword,
+                dataType: dataType === '请选择' ? '' : dataType,
+                dataFormat: dataFormat === '请选择' ? '' : dataFormat,
+                assetTag: assetTag === '请选择' ? '' : assetTag,
+                region,
+                startDate,
+                endDate,
+                customParams: []
+            };
+        }
+
+        function fillQueryParams(params) {
+            const queryTypeEls = document.getElementsByName('queryType');
+            for (let el of queryTypeEls) {
+                if (el.nextElementSibling.textContent.trim() === params.queryType) {
+                    el.checked = true;
+                }
+            }
+
+            document.getElementById('keywordInput').value = params.keyword || '';
+            document.getElementById('dataTypeSelect').value = params.dataType || '请选择';
+            document.getElementById('dataFormatSelect').value = params.dataFormat || '请选择';
+            document.getElementById('assetTagSelect').value = params.assetTag || '请选择';
+            document.getElementById('regionInput').value = params.region || '';
+            document.getElementById('startDateInput').value = params.startDate || '';
+            document.getElementById('endDateInput').value = params.endDate || '';
+        }
+
+        function renderMyQueriesList() {
+            let queries = getSavedQueries();
+            const listContainer = document.getElementById('myQueriesList');
+            const paginationContainer = document.getElementById('myQueriesPagination');
+            const filterValue = document.getElementById('filterQueryType').value;
+
+            if (filterValue) {
+                queries = queries.filter(q => q.params.queryType === filterValue);
+                currentPage = 1;
+            }
+
+            if (queries.length === 0) {
+                listContainer.innerHTML = '<div class="py-8 text-center text-gray-400 text-sm">暂无符合条件的查询记录</div>';
+                paginationContainer.innerHTML = '';
+                return;
+            }
+
+            queries.sort((a, b) => new Date(b.saveTime) - new Date(a.saveTime));
+
+            const totalPages = Math.ceil(queries.length / pageSize);
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIndex = (currentPage - 1) * pageSize;
+            const endIndex = startIndex + pageSize;
+            const pageQueries = queries.slice(startIndex, endIndex);
+
+            listContainer.innerHTML = pageQueries.map(query => {
+                const p = query.params;
+                return `
+                <div class="p-3 border border-gray-200 rounded hover:bg-gray-50 transition-colors mb-2">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="font-semibold text-gray-800 text-base truncate flex-1">${query.name}</div>
+                        <div class="flex items-center gap-1 flex-shrink-0 ml-2">
+                            <button onclick="showQueryDetail('${query.id}')" class="p-1 text-primary hover:text-blue-600 rounded transition-colors" title="查看详情">
+                                <i class="fa-solid fa-eye text-xs"></i>
+                            </button>
+                            <button onclick="editQuery('${query.id}')" class="p-1 text-primary hover:text-blue-600 rounded transition-colors" title="编辑名称">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                            <button onclick="backtrackQueryInPanel('${query.id}')" class="p-1 text-primary hover:text-blue-600 rounded transition-colors" title="回溯查询">
+                                <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                            </button>
+                            <button onclick="deleteQuery('${query.id}')" class="p-1 text-red-500 hover:text-red-600 rounded transition-colors" title="删除">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-500 mb-1">
+                        <span class="mr-4">查询对象：${p.queryType}</span>
+                        <span>关键词：${p.keyword || '-'}</span>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        <span class="mr-4">数据类型：${p.dataType || '-'}</span>
+                        <span>数据格式：${p.dataFormat || '-'}</span>
+                    </div>
+                </div>
+            `}).join('');
+
+            // 渲染分页
+            renderPagination(totalPages);
+        }
+
+        function renderPagination(totalPages) {
+            const paginationContainer = document.getElementById('myQueriesPagination');
+            let html = '';
+
+            // 上一页
+            if (currentPage > 1) {
+                html += `<button onclick="goToPage(${currentPage - 1})" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>`;
+            } else {
+                html += `<button class="px-3 py-1 border border-gray-200 rounded text-sm text-gray-400 cursor-not-allowed">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>`;
+            }
+
+            // 页码
+            const maxVisible = 5;
+            let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+            if (endPage - startPage < maxVisible - 1) {
+                startPage = Math.max(1, endPage - maxVisible + 1);
+            }
+
+            if (startPage > 1) {
+                html += `<button onclick="goToPage(1)" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors">1</button>`;
+                if (startPage > 2) {
+                    html += `<span class="px-2 text-gray-400">...</span>`;
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                if (i === currentPage) {
+                    html += `<button class="px-3 py-1 border border-primary bg-primary text-white rounded text-sm">${i}</button>`;
+                } else {
+                    html += `<button onclick="goToPage(${i})" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors">${i}</button>`;
+                }
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    html += `<span class="px-2 text-gray-400">...</span>`;
+                }
+                html += `<button onclick="goToPage(${totalPages})" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors">${totalPages}</button>`;
+            }
+
+            // 下一页
+            if (currentPage < totalPages) {
+                html += `<button onclick="goToPage(${currentPage + 1})" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 transition-colors">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>`;
+            } else {
+                html += `<button class="px-3 py-1 border border-gray-200 rounded text-sm text-gray-400 cursor-not-allowed">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>`;
+            }
+
+            paginationContainer.innerHTML = html;
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            renderMyQueriesList();
+        }
+
+        function showQueryDetail(id) {
+            const queries = getSavedQueries();
+            const query = queries.find(q => q.id === id);
+            if (!query) return;
+
+            const content = document.getElementById('queryDetailContent');
+            const p = query.params;
+
+            let html = '';
+
+            html += `
+                <div class="grid grid-cols-[100px_1fr] gap-3 mb-2">
+                    <span class="text-sm text-gray-600">查询名称：</span>
+                    <span class="text-sm text-gray-800 font-medium">${query.name}</span>
+                </div>
+                <div class="grid grid-cols-[100px_1fr] gap-3 mb-2">
+                    <span class="text-sm text-gray-600">查询对象：</span>
+                    <span class="text-sm text-gray-800">${p.queryType || '-'}</span>
+                </div>
+                <div class="grid grid-cols-[100px_1fr] gap-3 mb-2">
+                    <span class="text-sm text-gray-600">关键词：</span>
+                    <span class="text-sm text-gray-800">${p.keyword ? `"${p.keyword}"` : '-'}</span>
+                </div>
+                <div class="grid grid-cols-[100px_1fr] gap-3 mb-2">
+                    <span class="text-sm text-gray-600">数据类型：</span>
+                    <span class="text-sm text-gray-800">${Array.isArray(p.dataType) ? p.dataType.join('、') : (p.dataType || '-')}</span>
+                </div>
+                <div class="grid grid-cols-[100px_1fr] gap-3 mb-2">
+                    <span class="text-sm text-gray-600">数据格式：</span>
+                    <span class="text-sm text-gray-800">${Array.isArray(p.dataFormat) ? p.dataFormat.join('、') : (p.dataFormat || '-')}</span>
+                </div>
+                <div class="grid grid-cols-[100px_1fr] gap-3 mb-2">
+                    <span class="text-sm text-gray-600">资产标签：</span>
+                    <span class="text-sm text-gray-800">${p.assetTag || '-'}</span>
+                </div>
+                <div class="grid grid-cols-[100px_1fr] gap-3 mb-2">
+                    <span class="text-sm text-gray-600">查询区域：</span>
+                    <span class="text-sm text-gray-800 break-all font-mono text-xs bg-gray-50 px-2 py-1 rounded">${p.region || '-'}</span>
+                </div>
+                <div class="grid grid-cols-[100px_1fr] gap-3 mb-2">
+                    <span class="text-sm text-gray-600">获取时间：</span>
+                    <span class="text-sm text-gray-800">${(p.startDate || p.endDate) ? `${p.startDate || '-'} ~ ${p.endDate || '-'}` : '-'}</span>
+                </div>`;
+
+            if (p.customParams && p.customParams.length > 0) {
+                p.customParams.forEach(cp => {
+                    html += `
+                    <div class="grid grid-cols-[120px_1fr] gap-3 mb-2">
+                        <span class="text-sm text-gray-600">${cp.key}：</span>
+                        <span class="text-sm text-gray-800">${cp.value}</span>
+                    </div>`;
+                });
+            }
+
+            content.innerHTML = html;
+            document.getElementById('queryDetailModal').classList.remove('hidden');
+            document.getElementById('queryDetailModal').classList.add('flex');
+            currentEditingQueryId = id;
+        }
+
+        let currentEditingQueryId = null;
+        let currentPage = 1;
+        const pageSize = 10;
+
+        function editQuery(id) {
+            const queries = getSavedQueries();
+            const query = queries.find(q => q.id === id);
+            if (!query) return;
+
+            currentEditingQueryId = id;
+            document.getElementById('editQueryNameInput').value = query.name;
+            document.getElementById('editQueryModal').classList.remove('hidden');
+            document.getElementById('editQueryModal').classList.add('flex');
+        }
+
+        function backtrackQueryInPanel(id) {
+             const queries = getSavedQueries();
+             const query = queries.find(q => q.id === id);
+             if (!query) return;
+
+             fillQueryParams(query.params);
+             showQueryForm();
+         }
+
+        function showMyQueriesPanel() {
+            currentPage = 1;
+            document.getElementById('queryFormContainer').classList.add('hidden');
+            document.getElementById('myQueriesContainer').classList.remove('hidden');
+            renderMyQueriesList();
+        }
+
+        function showQueryForm() {
+            document.getElementById('myQueriesContainer').classList.add('hidden');
+            document.getElementById('queryFormContainer').classList.remove('hidden');
+        }
+
+        function deleteQuery(id) {
+            if (!confirm('确定要删除这条查询记录吗？')) return;
+
+            let queries = getSavedQueries();
+            queries = queries.filter(q => q.id !== id);
+            saveQueries(queries);
+            renderMyQueriesList();
+        }
+
+        document.getElementById('saveQueryBtn').addEventListener('click', () => {
+            document.getElementById('saveQueryModal').classList.remove('hidden');
+            document.getElementById('saveQueryModal').classList.add('flex');
+            document.getElementById('queryNameInput').value = '';
+            document.getElementById('queryNameInput').focus();
+        });
+
+        document.getElementById('closeSaveModal').addEventListener('click', () => {
+            document.getElementById('saveQueryModal').classList.add('hidden');
+            document.getElementById('saveQueryModal').classList.remove('flex');
+        });
+
+        document.getElementById('cancelSaveQuery').addEventListener('click', () => {
+            document.getElementById('saveQueryModal').classList.add('hidden');
+            document.getElementById('saveQueryModal').classList.remove('flex');
+        });
+
+        document.getElementById('confirmSaveQuery').addEventListener('click', () => {
+            const name = document.getElementById('queryNameInput').value.trim();
+            if (!name) {
+                alert('请输入查询名称');
+                return;
+            }
+
+            const params = getCurrentQueryParams();
+            if (!params.keyword && !params.dataType && !params.dataFormat && !params.assetTag && !params.region && !params.startDate) {
+                if (!confirm('当前查询条件都为空，确定要保存吗？')) {
+                    return;
+                }
+            }
+
+            const queries = getSavedQueries();
+            const now = new Date();
+            const saveTimeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            const newQuery = {
+                id: Date.now().toString(),
+                name: name,
+                params: params,
+                saveTime: saveTimeStr,
+                createTime: now.toISOString()
+            };
+
+            queries.push(newQuery);
+            saveQueries(queries);
+
+            document.getElementById('saveQueryModal').classList.add('hidden');
+            document.getElementById('saveQueryModal').classList.remove('flex');
+            alert('保存成功');
+        });
+
+        document.getElementById('showMyQueriesBtn').addEventListener('click', () => {
+             showMyQueriesPanel();
+         });
+
+         document.getElementById('backToQueryBtn').addEventListener('click', () => {
+            showQueryForm();
+        });
+
+        document.getElementById('filterConfirmBtn').addEventListener('click', () => {
+            currentPage = 1;
+            renderMyQueriesList();
+        });
+
+        document.getElementById('filterResetBtn').addEventListener('click', () => {
+            document.getElementById('filterQueryType').value = '';
+            currentPage = 1;
+            renderMyQueriesList();
+        });
+
+        document.getElementById('closeDetailModal').addEventListener('click', () => {
+            document.getElementById('queryDetailModal').classList.add('hidden');
+            document.getElementById('queryDetailModal').classList.remove('flex');
+        });
+
+        document.getElementById('closeDetailBtn').addEventListener('click', () => {
+            document.getElementById('queryDetailModal').classList.add('hidden');
+            document.getElementById('queryDetailModal').classList.remove('flex');
+        });
+
+        document.getElementById('closeEditModal').addEventListener('click', () => {
+            document.getElementById('editQueryModal').classList.add('hidden');
+            document.getElementById('editQueryModal').classList.remove('flex');
+        });
+
+        document.getElementById('cancelEditQuery').addEventListener('click', () => {
+            document.getElementById('editQueryModal').classList.add('hidden');
+            document.getElementById('editQueryModal').classList.remove('flex');
+        });
+
+        document.getElementById('confirmEditQuery').addEventListener('click', () => {
+            const newName = document.getElementById('editQueryNameInput').value.trim();
+            if (!newName) {
+                alert('请输入查询名称');
+                return;
+            }
+
+            if (!currentEditingQueryId) return;
+
+            const queries = getSavedQueries();
+            const index = queries.findIndex(q => q.id === currentEditingQueryId);
+            if (index >= 0) {
+                queries[index].name = newName;
+                saveQueries(queries);
+                renderMyQueriesList();
+                document.getElementById('editQueryModal').classList.add('hidden');
+                document.getElementById('editQueryModal').classList.remove('flex');
+            }
+        });
+
+        document.getElementById('saveQueryModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('saveQueryModal')) {
+                document.getElementById('saveQueryModal').classList.add('hidden');
+                document.getElementById('saveQueryModal').classList.remove('flex');
+            }
+        });
+
+        document.getElementById('queryDetailModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('queryDetailModal')) {
+                document.getElementById('queryDetailModal').classList.add('hidden');
+                document.getElementById('queryDetailModal').classList.remove('flex');
+            }
+        });
+
+        document.getElementById('editQueryModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('editQueryModal')) {
+                document.getElementById('editQueryModal').classList.add('hidden');
+                document.getElementById('editQueryModal').classList.remove('flex');
+            }
+        });
+
+        function initSampleData() {
+            // 只在本地存储为空时添加示例数据
+            const existing = getSavedQueries();
+            if (existing.length > 0) return;
+
+            const sampleQueries = [
+                {
+                    id: '1',
+                    name: '北京影像数据',
+                    params: {
+                        queryType: '数据',
+                        keyword: '北京',
+                        dataType: '栅格',
+                        dataFormat: 'tif,img',
+                        assetTag: '影像数据',
+                        region: '114.12345,40.12456;115.12345,41.12456;116.12345,41.12456;114.12345,40.12456',
+                        startDate: '',
+                        endDate: '20260422',
+                        customParams: [
+                            { key: '增值产品类型', value: 'L2A' },
+                            { key: '云量', value: '5%' }
+                        ]
+                    },
+                    saveTime: '2026-04-20 10:30',
+                    createTime: '2026-04-20T10:30:00Z'
+                },
+                {
+                    id: '2',
+                    name: '水系分布影像',
+                    params: {
+                        queryType: '数据',
+                        keyword: '水系 河流',
+                        dataType: '影像数据',
+                        dataFormat: 'TIFF',
+                        assetTag: '水系',
+                        region: '',
+                        startDate: '2022-01-01',
+                        endDate: '2022-12-31',
+                        customParams: []
+                    },
+                    saveTime: '2026-04-20 14:15',
+                    createTime: '2026-04-20T14:15:00Z'
+                },
+                {
+                    id: '3',
+                    name: '上海市道路网查询',
+                    params: {
+                        queryType: '数据',
+                        keyword: '上海 道路',
+                        dataType: '矢量数据',
+                        dataFormat: 'GeoJSON',
+                        assetTag: '道路',
+                        region: 'POLYGON((121.1 30.8, 121.8 30.8, 121.8 31.4, 121.1 31.4, 121.1 30.8))',
+                        startDate: '',
+                        endDate: '',
+                        customParams: []
+                    },
+                    saveTime: '2026-04-21 09:20',
+                    createTime: '2026-04-21T09:20:00Z'
+                },
+                {
+                    id: '4',
+                    name: '植被覆盖分析服务',
+                    params: {
+                        queryType: '服务',
+                        keyword: '植被 NDVI',
+                        dataType: '',
+                        dataFormat: '',
+                        assetTag: '植被',
+                        region: '',
+                        startDate: '2023-06-01',
+                        endDate: '2023-06-30',
+                        customParams: [
+                            { key: 'resolution', value: '10m' },
+                            { key: 'cloudCover', value: '<10%' }
+                        ]
+                    },
+                    saveTime: '2026-04-21 16:45',
+                    createTime: '2026-04-21T16:45:00Z'
+                },
+                {
+                    id: '5',
+                    name: '城区三维模型',
+                    params: {
+                        queryType: '数据',
+                        keyword: '城市中心 三维模型',
+                        dataType: '三维模型',
+                        dataFormat: '',
+                        assetTag: '',
+                        region: '',
+                        startDate: '',
+                        endDate: '',
+                        customParams: []
+                    },
+                    saveTime: '2026-04-22 08:10',
+                    createTime: '2026-04-22T08:10:00Z'
+                },
+                {
+                    id: '6',
+                    name: '山区地形分析',
+                    params: { queryType: '数据', keyword: '山区 地形', dataType: '地形数据', dataFormat: '', assetTag: '', region: '', startDate: '', endDate: '', customParams: [] },
+                    saveTime: '2026-04-22 09:00',
+                    createTime: '2026-04-22T09:00:00Z'
+                },
+                {
+                    id: '7',
+                    name: '沿海区域监测',
+                    params: { queryType: '数据', keyword: '沿海 监测', dataType: '影像数据', dataFormat: 'TIFF', assetTag: '', region: '', startDate: '2024-01-01', endDate: '2024-06-30', customParams: [] },
+                    saveTime: '2026-04-22 10:30',
+                    createTime: '2026-04-22T10:30:00Z'
+                },
+                {
+                    id: '8',
+                    name: '农田分布调查',
+                    params: { queryType: '数据', keyword: '农田 农业', dataType: '矢量数据', dataFormat: 'GeoJSON', assetTag: '植被', region: '', startDate: '', endDate: '', customParams: [] },
+                    saveTime: '2026-04-22 11:15',
+                    createTime: '2026-04-22T11:15:00Z'
+                },
+                {
+                    id: '9',
+                    name: '森林覆盖分析',
+                    params: { queryType: '服务', keyword: '森林 NDVI', dataType: '', dataFormat: '', assetTag: '植被', region: '', startDate: '2024-03-01', endDate: '2024-03-31', customParams: [{ key: 'resolution', value: '30m' }] },
+                    saveTime: '2026-04-22 12:00',
+                    createTime: '2026-04-22T12:00:00Z'
+                },
+                {
+                    id: '10',
+                    name: '道路网络规划',
+                    params: { queryType: '数据', keyword: '道路 交通', dataType: '矢量数据', dataFormat: 'Shapefile', assetTag: '道路', region: '', startDate: '', endDate: '', customParams: [] },
+                    saveTime: '2026-04-22 13:30',
+                    createTime: '2026-04-22T13:30:00Z'
+                },
+                {
+                    id: '11',
+                    name: '水资源调查',
+                    params: { queryType: '数据', keyword: '河流 湖泊', dataType: '矢量数据', dataFormat: 'GeoJSON', assetTag: '水系', region: '', startDate: '2023-01-01', endDate: '2023-12-31', customParams: [] },
+                    saveTime: '2026-04-22 14:00',
+                    createTime: '2026-04-22T14:00:00Z'
+                },
+                {
+                    id: '12',
+                    name: '城市建筑密度',
+                    params: { queryType: '数据', keyword: '城市 建筑密度', dataType: '三维模型', dataFormat: '', assetTag: '建筑', region: '', startDate: '', endDate: '', customParams: [] },
+                    saveTime: '2026-04-22 14:45',
+                    createTime: '2026-04-22T14:45:00Z'
+                },
+                {
+                    id: '13',
+                    name: '高分辨率卫星影像',
+                    params: { queryType: '数据', keyword: '卫星 影像 高清', dataType: '影像数据', dataFormat: 'TIFF', assetTag: '', region: '', startDate: '2025-01-01', endDate: '2025-12-31', customParams: [{ key: 'resolution', value: '2m' }, { key: 'cloudCover', value: '<5%' }] },
+                    saveTime: '2026-04-22 15:20',
+                    createTime: '2026-04-22T15:20:00Z'
+                },
+                {
+                    id: '14',
+                    name: '土地利用分类',
+                    params: { queryType: '服务', keyword: '土地利用 分类', dataType: '', dataFormat: '', assetTag: '', region: '', startDate: '', endDate: '', customParams: [] },
+                    saveTime: '2026-04-22 16:00',
+                    createTime: '2026-04-22T16:00:00Z'
+                },
+                {
+                    id: '15',
+                    name: '气象数据分析',
+                    params: { queryType: '数据', keyword: '气象 温度 降水', dataType: '影像数据', dataFormat: 'TIFF', assetTag: '', region: '', startDate: '2024-01-01', endDate: '2024-12-31', customParams: [{ key: 'temporal', value: 'daily' }] },
+                    saveTime: '2026-04-22 16:30',
+                    createTime: '2026-04-22T16:30:00Z'
+                }
+            ];
+
+            saveQueries(sampleQueries);
+        }
+
+        initSampleData();
+
+        window.showQueryDetail = showQueryDetail;
+        window.editQuery = editQuery;
+        window.backtrackQueryInPanel = backtrackQueryInPanel;
+        window.deleteQuery = deleteQuery;
+        window.goToPage = goToPage;
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务组详情 - 四维云行业通用软件</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1890ff',
+                        header: '#ffffff',
+                        sidebar: '#001529',
+                        main: '#f0f2f5',
+                        border: '#e8e8e8'
+                    }
+                }
+            }
+        }
+        
+        // ── State ──────────────────────────────────────────────
+        let isEditing = false;
+        let savedSortMode = 'custom';   // committed sort mode
+        let pendingSortMode = 'custom'; // sort mode while editing
+        let savedRowOrder = [];         // snapshot of row ids before edit
+        let dragSrcRow = null;
+
+        // ── Edit mode toggle ────────────────────────────────────
+        function enterEditMode() {
+            isEditing = true;
+            pendingSortMode = savedSortMode;
+
+            // Snapshot current row order
+            savedRowOrder = Array.from(
+                document.querySelectorAll('#serviceTableBody tr')
+            ).map(r => r.dataset.id);
+
+            // Header buttons
+            document.getElementById('btnEdit').classList.add('hidden');
+            document.getElementById('btnCancel').classList.remove('hidden');
+            document.getElementById('btnConfirm').classList.remove('hidden');
+
+            // Enable sort radios
+            document.querySelectorAll('input[name="sortMode"]').forEach(r => r.disabled = false);
+            document.querySelectorAll('#sortRadioGroup label').forEach(l => l.classList.add('cursor-pointer'));
+            document.querySelector(`input[name="sortMode"][value="${pendingSortMode}"]`).checked = true;
+
+            // Enable action buttons
+            document.getElementById('addServiceBtn').disabled = false;
+            document.getElementById('addServiceBtn').className = 'bg-primary hover:bg-primary/90 text-white px-4 py-1.5 rounded text-xs flex items-center shadow-sm transition-colors';
+            document.getElementById('addServiceBtn').onclick = showAddServicePopup;
+
+            // Table: show checkboxes, conditionally show drag handles
+            setTableEditState(true);
+        }
+
+        function cancelEditMode() {
+            isEditing = false;
+
+            // Restore row order
+            const tbody = document.getElementById('serviceTableBody');
+            savedRowOrder.forEach(id => {
+                const row = tbody.querySelector(`tr[data-id="${id}"]`);
+                if (row) tbody.appendChild(row);
+            });
+
+            // Restore sort mode
+            pendingSortMode = savedSortMode;
+
+            exitEditUI();
+        }
+
+        function confirmEditMode() {
+            isEditing = false;
+            savedSortMode = pendingSortMode;
+            if (savedSortMode === 'time') sortByTime();
+
+            // Uncheck all
+            document.querySelectorAll('#serviceTableBody input[type="checkbox"]').forEach(cb => cb.checked = false);
+            document.getElementById('selectAllCb').checked = false;
+
+            exitEditUI();
+        }
+
+        function exitEditUI() {
+            // Header buttons
+            document.getElementById('btnEdit').classList.remove('hidden');
+            document.getElementById('btnCancel').classList.add('hidden');
+            document.getElementById('btnConfirm').classList.add('hidden');
+
+            // Disable sort radios
+            document.querySelectorAll('input[name="sortMode"]').forEach(r => r.disabled = true);
+            document.querySelectorAll('#sortRadioGroup label').forEach(l => l.classList.remove('cursor-pointer'));
+            document.querySelector(`input[name="sortMode"][value="${savedSortMode}"]`).checked = true;
+
+            // Disable action buttons
+            document.getElementById('removeBtn').disabled = true;
+            document.getElementById('removeBtn').className = 'bg-gray-100 border border-gray-200 text-gray-400 px-4 py-1.5 rounded text-xs flex items-center cursor-not-allowed';
+            document.getElementById('addServiceBtn').disabled = true;
+            document.getElementById('addServiceBtn').className = 'bg-gray-100 border border-gray-200 text-gray-400 px-4 py-1.5 rounded text-xs flex items-center cursor-not-allowed';
+            document.getElementById('addServiceBtn').onclick = null;
+
+            // Table: hide checkboxes and drag handles
+            setTableEditState(false);
+        }
+
+        function onSortModeChange(val) {
+            pendingSortMode = val;
+            const handles = document.querySelectorAll('.drag-handle-cell');
+            if (val === 'custom') {
+                handles.forEach(h => h.classList.remove('invisible'));
+                initDragSort();
+            } else {
+                handles.forEach(h => h.classList.add('invisible'));
+                sortByTime();
+            }
+        }
+
+        function setTableEditState(editing) {
+            // checkbox column header — always visible, disabled when not editing
+            const selectAllCb = document.getElementById('selectAllCb');
+            selectAllCb.disabled = !editing;
+            selectAllCb.classList.toggle('opacity-40', !editing);
+            selectAllCb.classList.toggle('cursor-not-allowed', !editing);
+            // each row
+            document.querySelectorAll('#serviceTableBody tr').forEach(row => {
+                const cb = row.querySelector('.cb-cell input[type="checkbox"]');
+                if (cb) {
+                    cb.disabled = !editing;
+                    cb.classList.toggle('opacity-40', !editing);
+                    cb.classList.toggle('cursor-not-allowed', !editing);
+                }
+                const handle = row.querySelector('.drag-handle-cell');
+                if (handle) {
+                    if (editing && pendingSortMode === 'custom') {
+                        handle.classList.remove('invisible');
+                    } else {
+                        handle.classList.add('invisible');
+                    }
+                }
+            });
+            if (editing && pendingSortMode === 'custom') initDragSort();
+        }
+
+        // ── Drag sort ───────────────────────────────────────────
+        function initDragSort() {
+            const tbody = document.getElementById('serviceTableBody');
+            if (!tbody) return;
+            // Re-attach by cloning to clear stale listeners
+            Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+                const clone = row.cloneNode(true);
+                tbody.replaceChild(clone, row);
+            });
+            tbody.querySelectorAll('tr').forEach(row => {
+                row.setAttribute('draggable', 'true');
+                row.addEventListener('dragstart', onDragStart);
+                row.addEventListener('dragover', onDragOver);
+                row.addEventListener('drop', onDrop);
+                row.addEventListener('dragend', onDragEnd);
+            });
+        }
+
+        function onDragStart(e) {
+            dragSrcRow = this;
+            this.classList.add('opacity-50');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function onDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            document.querySelectorAll('#serviceTableBody tr').forEach(r => r.classList.remove('border-t-2', 'border-primary'));
+            this.classList.add('border-t-2', 'border-primary');
+            return false;
+        }
+
+        function onDrop(e) {
+            e.stopPropagation();
+            if (dragSrcRow && dragSrcRow !== this) {
+                const tbody = document.getElementById('serviceTableBody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                tbody.insertBefore(dragSrcRow, rows.indexOf(dragSrcRow) < rows.indexOf(this) ? this.nextSibling : this);
+                updateRowNumbers();
+            }
+            return false;
+        }
+
+        function onDragEnd() {
+            document.querySelectorAll('#serviceTableBody tr').forEach(r =>
+                r.classList.remove('opacity-50', 'border-t-2', 'border-primary')
+            );
+        }
+
+        function updateRowNumbers() {
+            document.querySelectorAll('#serviceTableBody tr').forEach((row, idx) => {
+                const el = row.querySelector('.row-num');
+                if (el) el.textContent = idx + 1;
+            });
+        }
+
+        function sortByTime() {
+            const tbody = document.getElementById('serviceTableBody');
+            if (!tbody) return;
+            Array.from(tbody.querySelectorAll('tr'))
+                .sort((a, b) => (a.dataset.acquireTime || '').localeCompare(b.dataset.acquireTime || ''))
+                .forEach(r => tbody.appendChild(r));
+            updateRowNumbers();
+        }
+
+        // ── Select / Remove ─────────────────────────────────────
+        function toggleSelectAll(source) {
+            document.querySelectorAll('#serviceTableBody input[type="checkbox"]').forEach(cb => cb.checked = source.checked);
+            updateRemoveBtn();
+        }
+
+        function updateRemoveBtn() {
+            if (!isEditing) return;
+            const anyChecked = document.querySelectorAll('#serviceTableBody input[type="checkbox"]:checked').length > 0;
+            const btn = document.getElementById('removeBtn');
+            if (anyChecked) {
+                btn.disabled = false;
+                btn.className = 'border border-gray-300 hover:bg-red-50 hover:border-red-300 hover:text-red-500 text-gray-600 bg-white px-4 py-1.5 rounded text-xs flex items-center transition-colors';
+                btn.onclick = showDeleteConfirm;
+            } else {
+                btn.disabled = true;
+                btn.className = 'bg-gray-100 border border-gray-200 text-gray-400 px-4 py-1.5 rounded text-xs flex items-center cursor-not-allowed';
+                btn.onclick = null;
+            }
+        }
+
+        function showDeleteConfirm() {
+            const selectedCount = document.querySelectorAll('#serviceTableBody input[type="checkbox"]:checked').length;
+            if (selectedCount === 0) return;
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black/30 z-40';
+            const popup = document.createElement('div');
+            popup.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-md shadow-lg border border-gray-200 p-5 z-50 w-72';
+            popup.innerHTML = `
+                <p class="text-sm text-gray-700 text-center mb-4">确定要移除选中的 <span class="font-medium text-gray-900">${selectedCount}</span> 个服务吗？</p>
+                <div class="flex justify-center gap-3">
+                    <button class="border border-gray-300 hover:bg-gray-50 text-gray-600 px-5 py-1.5 rounded text-xs transition-colors" onclick="closeConfirmPopup()">取消</button>
+                    <button class="bg-red-500 hover:bg-red-600 text-white px-5 py-1.5 rounded text-xs transition-colors" onclick="deleteSelected()">确定移除</button>
+                </div>`;
+            overlay.onclick = closeConfirmPopup;
+            document.body.appendChild(overlay);
+            document.body.appendChild(popup);
+        }
+
+        function closeConfirmPopup() {
+            document.querySelector('.fixed.z-50')?.remove();
+            document.querySelector('.fixed.z-40')?.remove();
+        }
+
+        function deleteSelected() {
+            document.querySelectorAll('#serviceTableBody input[type="checkbox"]:checked').forEach(cb => cb.closest('tr').remove());
+            updateRowNumbers();
+            closeConfirmPopup();
+            updateRemoveBtn();
+        }
+
+        // ── Init ────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set initial radio selection
+            document.querySelector(`input[name="sortMode"][value="${savedSortMode}"]`).checked = true;
+            // Start in view mode
+            setTableEditState(false);
+        });
+
+        function showAddServicePopup() {
+            const overlay = document.createElement('div');
+            overlay.id = 'addServiceOverlay';
+            overlay.className = 'fixed inset-0 bg-black/30 z-50';
+            
+            const popup = document.createElement('div');
+            popup.id = 'addServicePopup';
+            popup.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-md shadow-lg border border-gray-200 z-50 w-[80vw] h-[80vh] overflow-hidden';
+            
+            popup.innerHTML = `
+                <div class="flex flex-col h-full">
+                    <div class="border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+                        <h3 class="text-base font-bold text-gray-800">添加服务</h3>
+                        <button type="button" class="text-gray-500 hover:text-gray-700" onclick="closeAddServicePopup()">
+                            <i class="fa-solid fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="border-b border-gray-200 px-4 py-3 bg-gray-50">
+                        <div class="flex flex-wrap gap-3 items-center">
+                            <div>
+                                <label class="text-sm text-gray-600 mr-2">服务名称</label>
+                                <input type="text" placeholder="请输入" class="text-gray-800 text-sm border border-gray-200 rounded px-2 py-1">
+                            </div>
+                            <div>
+                                <label class="text-sm text-gray-600 mr-2">数据格式</label>
+                                <select class="text-gray-800 text-sm border border-gray-200 rounded px-2 py-1">
+                                    <option>请选择</option>
+                                    <option>TIF</option>
+                                    <option>MBTiles</option>
+                                    <option>Shapefile</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm text-gray-600 mr-2">资产标签</label>
+                                <select class="text-gray-800 text-sm border border-gray-200 rounded px-2 py-1">
+                                    <option>请选择</option>
+                                </select>
+                            </div>
+                            <div class="flex gap-2 ml-auto">
+                                <button class="bg-primary hover:bg-primary/90 text-white px-3 py-1 rounded text-sm transition-colors">查询</button>
+                                <button class="border border-gray-300 hover:bg-gray-50 text-gray-600 px-3 py-1 rounded text-sm transition-colors">重置</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 overflow-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100 text-xs text-gray-500 border-b border-gray-200 sticky top-0">
+                                    <th class="py-2 px-4 font-medium w-10"></th>
+                                    <th class="py-2 px-4 font-medium">服务名称</th>
+                                    <th class="py-2 px-4 font-medium">数据格式</th>
+                                    <th class="py-2 px-4 font-medium">资产标签</th>
+                                    <th class="py-2 px-4 font-medium">空间参考</th>
+                                    <th class="py-2 px-4 font-medium">缩略图</th>
+                                    <th class="py-2 px-4 font-medium">创建时间</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-xs text-gray-700">
+                                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                    <td class="py-3 px-4"><input type="checkbox"></td>
+                                    <td class="py-3 px-4">beijing_2023</td>
+                                    <td class="py-3 px-4">TIF</td>
+                                    <td class="py-3 px-4"></td>
+                                    <td class="py-3 px-4">EPSG:32648</td>
+                                    <td class="py-3 px-4"><div class="w-12 h-12 bg-gray-200 rounded"></div></td>
+                                    <td class="py-3 px-4">2023-10-15</td>
+                                </tr>
+                                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                    <td class="py-3 px-4"><input type="checkbox"></td>
+                                    <td class="py-3 px-4">shanghai_vector</td>
+                                    <td class="py-3 px-4">MBTiles</td>
+                                    <td class="py-3 px-4"></td>
+                                    <td class="py-3 px-4">EPSG:3857</td>
+                                    <td class="py-3 px-4"><div class="w-12 h-12 bg-gray-200 rounded"></div></td>
+                                    <td class="py-3 px-4">2023-11-20</td>
+                                </tr>
+                                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                    <td class="py-3 px-4"><input type="checkbox"></td>
+                                    <td class="py-3 px-4">guangzhou_dem</td>
+                                    <td class="py-3 px-4">TIF</td>
+                                    <td class="py-3 px-4"></td>
+                                    <td class="py-3 px-4">WGS84 墨卡托投影</td>
+                                    <td class="py-3 px-4"><div class="w-12 h-12 bg-gray-200 rounded"></div></td>
+                                    <td class="py-3 px-4">2023-12-05</td>
+                                </tr>
+                                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                    <td class="py-3 px-4"><input type="checkbox"></td>
+                                    <td class="py-3 px-4">shenzhen_boundary</td>
+                                    <td class="py-3 px-4">Shapefile</td>
+                                    <td class="py-3 px-4"></td>
+                                    <td class="py-3 px-4">CGCS2000</td>
+                                    <td class="py-3 px-4"><div class="w-12 h-12 bg-gray-200 rounded"></div></td>
+                                    <td class="py-3 px-4">2024-01-10</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="border-t border-gray-200 px-4 py-3 flex items-center justify-between bg-gray-50">
+                        <div class="text-xs text-gray-500">
+                            共 56 条
+                            <select class="ml-2 text-gray-800 text-sm border border-gray-200 rounded px-1 py-0.5">
+                                <option>10 条/页</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button class="text-gray-500 hover:text-gray-700 px-2 py-1 text-xs border border-gray-200 rounded"><</button>
+                            <button class="bg-primary text-white px-2 py-1 text-xs border border-primary rounded">1</button>
+                            <button class="text-gray-700 hover:bg-gray-100 px-2 py-1 text-xs border border-gray-200 rounded">2</button>
+                            <button class="text-gray-700 hover:bg-gray-100 px-2 py-1 text-xs border border-gray-200 rounded">3</button>
+                            <span class="text-gray-500">...</span>
+                            <button class="text-gray-700 hover:bg-gray-100 px-2 py-1 text-xs border border-gray-200 rounded">6</button>
+                            <button class="text-gray-500 hover:text-gray-700 px-2 py-1 text-xs border border-gray-200 rounded">></button>
+                            <span class="ml-2 text-xs text-gray-500">前往</span>
+                            <input type="number" value="1" min="1" max="6" class="w-12 text-gray-800 text-sm border border-gray-200 rounded px-1 py-0.5 text-center">
+                            <span class="ml-1 text-xs text-gray-500">页</span>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t border-gray-200 px-4 py-3 flex justify-center gap-4">
+                        <button class="bg-primary hover:bg-primary/90 text-white px-6 py-1.5 rounded text-sm transition-colors" onclick="closeAddServicePopup()">确认</button>
+                        <button class="border border-gray-300 hover:bg-gray-50 text-gray-600 px-6 py-1.5 rounded text-sm transition-colors" onclick="closeAddServicePopup()">取消</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+            document.body.appendChild(popup);
+        }
+        
+        function closeAddServicePopup() {
+            document.getElementById('addServicePopup')?.remove();
+            document.getElementById('addServiceOverlay')?.remove();
+        }
+    </script>
+    <style>
+        body {
+            min-width: 1200px; 
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ccc; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #999; 
+        }
+        
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+        .input-wrapper input,
+        .input-wrapper select {
+            flex: 1;
+        }
+        .input-wrapper .clear-btn {
+            position: absolute;
+            right: 8px;
+            background: none;
+            border: none;
+            color: #999;
+            cursor: pointer;
+            padding: 2px 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        .input-wrapper .clear-btn:hover {
+            opacity: 1;
+            color: #666;
+        }
+        .input-wrapper select + .clear-btn {
+            right: 24px;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col font-sans text-sm text-gray-700 bg-main overflow-hidden">
+
+    <header class="h-16 bg-header text-gray-800 flex items-center justify-between px-6 flex-shrink-0 shadow-sm z-20 border-b border-gray-200">
+        <div class="flex items-center gap-2.5 w-72">
+            <div class="w-10 h-10 text-primary flex items-center justify-center text-[34px]">
+                <i class="fa-solid fa-earth-americas"></i>
+            </div>
+            <div class="flex flex-col justify-center">
+                <span class="text-[17px] font-black tracking-wide text-gray-800 leading-tight">四维云行业通用软件</span>
+                <span class="text-[11px] font-bold tracking-[0.25em] text-gray-800 leading-tight mt-0.5">时空数据管理</span>
+            </div>
+        </div>
+
+        <nav class="flex-1 px-8 h-full">
+            <ul class="flex h-full items-center gap-10 font-medium text-[16px]">
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据汇聚</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据管理</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据查询</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据处理</li>
+                <li class="h-full flex items-center text-primary cursor-pointer px-3 border-b-2 border-primary bg-blue-50/50 transition-colors font-semibold">服务管理</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据可视化</li>
+            </ul>
+        </nav>
+
+        <div class="flex items-center gap-6">
+            <a href="#" class="text-primary transition-colors flex items-center gap-1.5 text-[14px]">
+                更多 <i class="fa-solid fa-angle-down text-[10px]"></i>
+            </a>
+            <div class="flex items-center gap-3 cursor-pointer hover:bg-gray-50 py-1.5 px-3 rounded-full border border-transparent hover:border-gray-200 transition-all">
+                <span class="text-gray-700 font-medium text-[14px]">admin</span>
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="User" class="w-7 h-7 rounded-full bg-gray-200 border border-gray-300 shadow-sm">
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <aside class="w-64 bg-sidebar text-gray-300 flex flex-col flex-shrink-0 z-10 shadow-lg overflow-y-auto">
+            <div class="py-4">
+                <ul class="flex flex-col w-full">
+                    <li class="w-full">
+                        <div class="flex items-center justify-between px-6 py-4 text-white cursor-pointer transition-colors">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-layer-group w-5 text-center text-primary"></i>
+                                <span class="text-[16px] tracking-wide font-medium">空间服务管理</span>
+                            </div>
+                            <i class="fa-solid fa-angle-up text-xs text-gray-400"></i>
+                        </div>
+                        <ul class="bg-[#000c17] py-2">
+                            <li>
+                                <div class="pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors cursor-pointer">
+                                    全部服务
+                                </div>
+                            </li>
+                            <li>
+                                <div class="pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors cursor-pointer">
+                                    影像服务
+                                </div>
+                            </li>
+                            <li>
+                                <div class="pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors cursor-pointer">
+                                    矢量服务
+                                </div>
+                            </li>
+                            <li>
+                                <div class="pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors cursor-pointer">
+                                    地形服务
+                                </div>
+                            </li>
+                            <li>
+                                <div class="pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors cursor-pointer">
+                                    三维服务
+                                </div>
+                            </li>
+                            <li>
+                                <div class="pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors cursor-pointer">
+                                    实景三维服务
+                                </div>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li class="w-full">
+                        <div class="flex items-center px-6 py-4 hover:text-white cursor-pointer transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-palette w-5 text-center text-gray-400 group-hover:text-white transition-colors"></i>
+                                <span class="text-[16px] tracking-wide">样式管理</span>
+                            </div>
+                        </div>
+                    </li>
+
+                    <li class="w-full">
+                        <div class="flex items-center px-6 py-4 text-white cursor-pointer transition-colors">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-folder-open w-5 text-center text-primary"></i>
+                                <span class="text-[16px] tracking-wide font-medium">服务组管理</span>
+                            </div>
+                        </div>
+                    </li>
+
+                </ul>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col overflow-hidden bg-[#f0f2f5]">
+            
+            <div class="flex-shrink-0 bg-[#f0f2f5] px-4 md:px-6 pt-4 md:pt-6 pb-3 z-10 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-800">图层组详情</h1>
+                    </div>
+                    <button class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-600 px-4 py-1.5 rounded text-xs flex items-center shadow-sm transition-colors">
+                        <i class="fa-solid fa-arrow-left mr-1.5"></i> 返回
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
+
+                <section class="bg-white rounded-md shadow-sm border border-gray-200 mb-6">
+                    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-1 h-4 bg-primary rounded-full mr-2"></div>
+                            <h2 class="font-bold text-gray-800 text-sm">基础属性</h2>
+                        </div>
+                        <button class="bg-primary hover:bg-primary/90 text-white px-4 py-1.5 rounded text-xs flex items-center shadow-sm transition-colors">
+                            <i class="fa-solid fa-pen mr-1.5"></i> 编辑
+                        </button>
+                    </div>
+                    <div class="p-5">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-y-4 gap-x-12">
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">服务组名称：</span>
+                                <span class="text-gray-800 font-medium text-sm">111</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs">资产标签：</span>
+                                <span class="text-gray-800 text-sm"></span>
+                            </div>
+                            <div class="md:col-span-3 flex items-start">
+                                <span class="text-gray-500 w-24 flex-shrink-0 text-right mr-3 text-xs pt-0.5">服务组描述：</span>
+                                <span class="text-gray-800 text-sm"></span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bg-white rounded-md shadow-sm border border-gray-200 mb-6">
+
+                    <!-- 行1：标题 + 编辑/取消/确认 -->
+                    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-1 h-4 bg-primary rounded-full mr-2"></div>
+                            <h2 class="font-bold text-gray-800 text-sm">服务图层管理</h2>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="btnEdit" onclick="enterEditMode()"
+                                class="bg-primary hover:bg-primary/90 text-white px-4 py-1.5 rounded text-xs flex items-center shadow-sm transition-colors">
+                                <i class="fa-solid fa-pen mr-1.5"></i> 编辑
+                            </button>
+                            <button id="btnCancel" onclick="cancelEditMode()"
+                                class="hidden border border-gray-300 hover:bg-gray-50 text-gray-600 px-4 py-1.5 rounded text-xs flex items-center transition-colors">
+                                取消
+                            </button>
+                            <button id="btnConfirm" onclick="confirmEditMode()"
+                                class="hidden bg-primary hover:bg-primary/90 text-white px-4 py-1.5 rounded text-xs flex items-center shadow-sm transition-colors">
+                                确认
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 行2：排序方式 -->
+                    <div class="px-5 py-2.5 border-b border-gray-100 flex items-center gap-4">
+                        <span class="text-xs text-gray-500 flex-shrink-0">排序方式：</span>
+                        <div id="sortRadioGroup" class="flex items-center gap-5">
+                            <label class="flex items-center gap-1.5 text-xs text-gray-700" id="labelCustom">
+                                <input type="radio" name="sortMode" value="custom" class="accent-primary" onchange="onSortModeChange('custom')" disabled>
+                                自定义排序
+                            </label>
+                            <label class="flex items-center gap-1.5 text-xs text-gray-700" id="labelTime">
+                                <input type="radio" name="sortMode" value="time" class="accent-primary" onchange="onSortModeChange('time')" disabled>
+                                按数据获取时间排序
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 行3：操作按钮 -->
+                    <div id="actionRow" class="px-5 py-2.5 border-b border-gray-100 flex items-center gap-2">
+                        <button id="removeBtn" disabled
+                            class="bg-gray-100 border border-gray-200 text-gray-400 px-4 py-1.5 rounded text-xs flex items-center cursor-not-allowed">
+                            <i class="fa-solid fa-trash mr-1.5"></i> 移除
+                        </button>
+                        <button id="addServiceBtn" disabled
+                            class="bg-gray-100 border border-gray-200 text-gray-400 px-4 py-1.5 rounded text-xs flex items-center cursor-not-allowed">
+                            <i class="fa-solid fa-plus mr-1.5"></i> 添加服务
+                        </button>
+                    </div>
+
+                    <!-- 行4+：服务列表 -->
+                    <div class="p-0 overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-50 text-xs text-gray-500 border-b border-gray-200">
+                                    <th class="py-3 px-3 w-8 text-center"></th>
+                                    <th class="py-3 px-4 w-10 font-medium">
+                                        <input id="selectAllCb" type="checkbox" onclick="toggleSelectAll(this)">
+                                    </th>
+                                    <th class="py-3 px-4 font-medium">服务名称</th>
+                                    <th class="py-3 px-4 font-medium">原始数据格式</th>
+                                    <th class="py-3 px-4 font-medium">网格集</th>
+                                    <th class="py-3 px-4 font-medium">层级</th>
+                                    <th class="py-3 px-4 font-medium">缩略图</th>
+                                    <th class="py-3 px-4 font-medium">资产标签</th>
+                                    <th class="py-3 px-4 font-medium">数据获取时间</th>
+                                </tr>
+                            </thead>
+                            <tbody id="serviceTableBody" class="text-xs text-gray-700">
+                                <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors" data-id="row1" data-acquire-time="2023-10-15">
+                                    <td class="drag-handle-cell py-3 px-3 text-center cursor-grab text-gray-300 hover:text-gray-500 select-none invisible"><i class="fa-solid fa-grip-vertical"></i></td>
+                                    <td class="cb-cell py-3 px-4"><input type="checkbox" onchange="updateRemoveBtn()"></td>
+                                    <td class="py-3 px-4">0408-tif</td>
+                                    <td class="py-3 px-4">TIF</td>
+                                    <td class="py-3 px-4">WGS84 墨卡托投影</td>
+                                    <td class="py-3 px-4">10-18</td>
+                                    <td class="py-3 px-4"><div class="w-16 h-12 bg-gray-200 rounded overflow-hidden"><img src="https://via.placeholder.com/64x48/4a7c59/ffffff?text=TIF" alt="thumb" class="w-full h-full object-cover"></div></td>
+                                    <td class="py-3 px-4"></td>
+                                    <td class="py-3 px-4 text-gray-500">2023-10-15</td>
+                                </tr>
+                                <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors" data-id="row2" data-acquire-time="2023-11-20">
+                                    <td class="drag-handle-cell py-3 px-3 text-center cursor-grab text-gray-300 hover:text-gray-500 select-none invisible"><i class="fa-solid fa-grip-vertical"></i></td>
+                                    <td class="cb-cell py-3 px-4"><input type="checkbox" onchange="updateRemoveBtn()"></td>
+                                    <td class="py-3 px-4">chongqing_vector</td>
+                                    <td class="py-3 px-4">MBTiles</td>
+                                    <td class="py-3 px-4">WGS84 墨卡托投影</td>
+                                    <td class="py-3 px-4">0-14</td>
+                                    <td class="py-3 px-4"><div class="w-16 h-12 bg-gray-100 rounded flex items-center justify-center"><i class="fa-regular fa-map text-gray-300 text-lg"></i></div></td>
+                                    <td class="py-3 px-4"></td>
+                                    <td class="py-3 px-4 text-gray-500">2023-11-20</td>
+                                </tr>
+                                <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors" data-id="row3" data-acquire-time="2023-09-08">
+                                    <td class="drag-handle-cell py-3 px-3 text-center cursor-grab text-gray-300 hover:text-gray-500 select-none invisible"><i class="fa-solid fa-grip-vertical"></i></td>
+                                    <td class="cb-cell py-3 px-4"><input type="checkbox" onchange="updateRemoveBtn()"></td>
+                                    <td class="py-3 px-4">chongqing_dwflcq</td>
+                                    <td class="py-3 px-4">MBTiles</td>
+                                    <td class="py-3 px-4">WGS84 墨卡托投影</td>
+                                    <td class="py-3 px-4">10-18</td>
+                                    <td class="py-3 px-4"><div class="w-16 h-12 bg-gray-100 rounded flex items-center justify-center"><i class="fa-regular fa-map text-gray-300 text-lg"></i></div></td>
+                                    <td class="py-3 px-4"></td>
+                                    <td class="py-3 px-4 text-gray-500">2023-09-08</td>
+                                </tr>
+                                <tr class="hover:bg-gray-50 transition-colors" data-id="row4" data-acquire-time="2024-01-10">
+                                    <td class="drag-handle-cell py-3 px-3 text-center cursor-grab text-gray-300 hover:text-gray-500 select-none invisible"><i class="fa-solid fa-grip-vertical"></i></td>
+                                    <td class="cb-cell py-3 px-4"><input type="checkbox" onchange="updateRemoveBtn()"></td>
+                                    <td class="py-3 px-4">shp 服务</td>
+                                    <td class="py-3 px-4">Shapefile</td>
+                                    <td class="py-3 px-4">WGS84 经纬度</td>
+                                    <td class="py-3 px-4">10-18</td>
+                                    <td class="py-3 px-4"><div class="w-16 h-12 bg-gray-200 rounded overflow-hidden"><img src="https://via.placeholder.com/64x48/3b5998/ffffff?text=SHP" alt="thumb" class="w-full h-full object-cover"></div></td>
+                                    <td class="py-3 px-4"></td>
+                                    <td class="py-3 px-4 text-gray-500">2024-01-10</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+            </div>
+
+        </main>
+    </div>
+
+</body>
+</html>

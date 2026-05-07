@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发布 MVT 矢量切片服务 - 时空数据管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1890ff',
+                        header: '#ffffff',
+                        sidebar: '#001529',
+                        main: '#f0f2f5',
+                        border: '#e8e8e8'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { min-width: 1200px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .custom-input {
+            border: 1px solid #d9d9d9;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+        .custom-input:focus {
+            border-color: #40a9ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+            outline: none;
+        }
+        .custom-input:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+            color: rgba(0, 0, 0, 0.25);
+        }
+        .custom-label {
+            width: 140px;
+            color: rgba(0, 0, 0, 0.85);
+            font-size: 14px;
+        }
+        
+        .help-text {
+            color: rgba(0, 0, 0, 0.45);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .select-multiple {
+            min-height: 90px;
+            padding: 4px 8px;
+        }
+        .select-multiple option {
+            padding: 4px 8px;
+        }
+
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .radio-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* 多选下拉框样式 */
+        .multiselect-container {
+            position: relative;
+            width: 360px;
+        }
+        .multiselect-input {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            height: 36px;
+            border: 1px solid #d9d9d9;
+            border-radius: 2px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .multiselect-input:hover {
+            border-color: #40a9ff;
+        }
+        .multiselect-input:focus {
+            border-color: #40a9ff;
+            box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+            outline: none;
+        }
+        .multiselect-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #d9d9d9;
+            border-top: none;
+            border-radius: 0 0 2px 2px;
+            background-color: #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            display: none;
+        }
+        .multiselect-dropdown.show {
+            display: block;
+        }
+        .multiselect-option {
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .multiselect-option:hover {
+            background-color: #f5f5f5;
+        }
+        .multiselect-option.selected {
+            background-color: #e6f7ff;
+        }
+        .selected-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            flex: 1;
+        }
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background-color: #e6f7ff;
+            border: 1px solid #91d5ff;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #1890ff;
+        }
+        .tag-remove {
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col font-sans text-sm text-gray-700 bg-main overflow-hidden">
+
+    <header class="h-16 bg-header text-gray-800 flex items-center justify-between px-6 flex-shrink-0 shadow-sm z-20 border-b border-gray-200">
+        <div class="flex items-center gap-2.5 w-72">
+            <div class="w-10 h-10 text-primary flex items-center justify-center text-[34px]">
+                <i class="fa-solid fa-earth-americas"></i>
+            </div>
+            <div class="flex flex-col justify-center">
+                <span class="text-[17px] font-black tracking-wide text-gray-800 leading-tight">四维云行业通用软件</span>
+                <span class="text-[11px] font-bold tracking-[0.25em] text-gray-800 leading-tight mt-0.5">时空数据管理</span>
+            </div>
+        </div>
+
+        <nav class="flex-1 px-8 h-full">
+            <ul class="flex h-full items-center gap-10 font-medium text-[16px]">
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据汇聚</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据管理</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据查询</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据处理</li>
+                <li class="h-full flex items-center text-primary cursor-pointer px-3 border-b-2 border-primary bg-blue-50/50 transition-colors font-semibold">服务管理</li>
+                <li class="h-full flex items-center text-gray-600 hover:text-primary cursor-pointer px-3 border-b-2 border-transparent hover:border-primary transition-colors">数据可视化</li>
+            </ul>
+        </nav>
+
+        <div class="flex items-center gap-6">
+            <a href="#" class="text-primary transition-colors flex items-center gap-1.5 text-[14px]">
+                更多 <i class="fa-solid fa-angle-down text-[10px]"></i>
+            </a>
+            <div class="flex items-center gap-3 cursor-pointer hover:bg-gray-50 py-1.5 px-3 rounded-full border border-transparent hover:border-gray-200 transition-all">
+                <span class="text-gray-700 font-medium text-[14px]">admin</span>
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="User" class="w-7 h-7 rounded-full bg-gray-200 border border-gray-300 shadow-sm">
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <aside class="w-64 bg-sidebar text-gray-300 flex flex-col flex-shrink-0 z-10 shadow-lg overflow-y-auto">
+            <div class="py-4">
+                <ul class="flex flex-col w-full">
+                    
+                    <li class="w-full">
+                        <div class="flex items-center justify-between px-6 py-4 hover:text-white cursor-pointer transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-globe w-5 text-center text-gray-400 group-hover:text-white transition-colors"></i>
+                                <span class="text-[16px] tracking-wide">空间服务管理</span>
+                            </div>
+                            <i class="fa-solid fa-angle-up text-xs text-gray-400"></i>
+                        </div>
+                        <ul class="bg-[#000c17] py-2">
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-primary bg-primary/10 border-r-4 border-primary font-medium tracking-wide">全部服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">影像服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">矢量栅格服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">矢量服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">地形服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">白模服务</a></li>
+                            <li><a href="#" class="block pl-[52px] pr-6 py-3 text-[14px] text-gray-400 hover:text-white hover:bg-primary/10 transition-colors">实景三维服务</a></li>
+                        </ul>
+                    </li>
+
+                    <li class="w-full">
+                        <div class="flex items-center justify-between px-6 py-4 hover:text-white cursor-pointer transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-paint-brush w-5 text-center text-gray-400 group-hover:text-white transition-colors"></i>
+                                <span class="text-[16px] tracking-wide">样式管理</span>
+                            </div>
+                            <i class="fa-solid fa-angle-down text-xs text-gray-500 group-hover:text-gray-300"></i>
+                        </div>
+                    </li>
+
+                    <li class="w-full">
+                        <div class="flex items-center justify-between px-6 py-4 hover:text-white cursor-pointer transition-colors group">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-sitemap w-5 text-center text-gray-400 group-hover:text-white transition-colors"></i>
+                                <span class="text-[16px] tracking-wide">服务组管理</span>
+                            </div>
+                            <i class="fa-solid fa-angle-down text-xs text-gray-500 group-hover:text-gray-300"></i>
+                        </div>
+                    </li>
+
+                </ul>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto p-6 flex flex-col">
+            
+            <div class="bg-white rounded-sm shadow-sm border border-gray-200 flex flex-col min-h-full">
+                
+                <div class="px-6 py-4 border-b border-gray-100">
+                    <h2 class="text-[16px] font-bold text-gray-800">发布服务</h2>
+                </div>
+
+                <div class="flex-1 p-8 overflow-y-auto">
+                    <div class="max-w-5xl">
+                        <form class="space-y-6">
+                            
+                            <div class="space-y-5 pb-6 border-b border-gray-100">
+                                
+                                <div class="flex items-center">
+                                    <label class="custom-label flex-shrink-0">服务名称<span class="text-red-500 ml-1">*</span></label>
+                                    <input type="text" placeholder="请输入服务名称" class="w-[360px] h-9 px-3 custom-input text-[14px]">
+                                </div>
+
+                                <div class="flex items-center">
+                                    <label class="custom-label flex-shrink-0">资产标签</label>
+                                    <select class="w-[360px] h-9 pl-3 pr-8 custom-input bg-white appearance-none text-[14px]">
+                                        <option>请选择</option>
+                                        <option>基础数据</option>
+                                        <option>业务数据</option>
+                                        <option>公共数据</option>
+                                    </select>
+                                </div>
+
+                                <div class="flex items-center">
+                                    <label class="custom-label flex-shrink-0">数据表名<span class="text-red-500 ml-1">*</span></label>
+                                    <input type="text" value="road_network_2023" disabled class="w-[360px] h-9 px-3 custom-input text-[14px] bg-gray-50 cursor-not-allowed">
+                                </div>
+
+                                <div class="flex items-center">
+                                    <label class="custom-label flex-shrink-0">空间几何字段<span class="text-red-500 ml-1">*</span></label>
+                                    <div class="relative w-[360px]">
+                                        <select class="w-full h-9 pl-3 pr-8 custom-input bg-white appearance-none text-[14px]" disabled>
+                                            <option selected>geom (MultiLineString)</option>
+                                        </select>
+                                        <i class="fa-solid fa-angle-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]"></i>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-start">
+                                    <label class="custom-label flex-shrink-0 pt-2">发布属性字段<span class="text-red-500 ml-1">*</span></label>
+                                    <div class="flex-1">
+                                        <div class="multiselect-container">
+                                            <div class="multiselect-input" id="properties-input">
+                                                <div class="selected-tags" id="selected-tags">
+                                                    <div class="tag">road_name <span class="tag-remove" data-value="road_name">×</span></div>
+                                                    <div class="tag">road_type <span class="tag-remove" data-value="road_type">×</span></div>
+                                                    <div class="tag">speed_limit <span class="tag-remove" data-value="speed_limit">×</span></div>
+                                                </div>
+                                                <i class="fa-solid fa-angle-down text-gray-400"></i>
+                                            </div>
+                                            <div class="multiselect-dropdown" id="properties-dropdown">
+                                                <div class="multiselect-option selected" data-value="road_name">
+                                                    <input type="checkbox" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                                                    <span>road_name</span>
+                                                </div>
+                                                <div class="multiselect-option selected" data-value="road_type">
+                                                    <input type="checkbox" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                                                    <span>road_type</span>
+                                                </div>
+                                                <div class="multiselect-option selected" data-value="speed_limit">
+                                                    <input type="checkbox" checked class="rounded border-gray-300 text-primary focus:ring-primary">
+                                                    <span>speed_limit</span>
+                                                </div>
+                                                <div class="multiselect-option" data-value="create_time">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary">
+                                                    <span>create_time</span>
+                                                </div>
+                                                <div class="multiselect-option" data-value="gid">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary">
+                                                    <span>gid</span>
+                                                </div>
+                                                <div class="multiselect-option" data-value="length">
+                                                    <input type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary">
+                                                    <span>length</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p class="help-text mt-1">
+                                            选择要打包进 MVT 切片的属性字段
+                                        </p>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="space-y-5 pb-6 border-b border-gray-100">
+                                
+                                <div class="flex items-start">
+                                    <label class="custom-label flex-shrink-0 pt-2">发布协议与格式<span class="text-red-500 ml-1">*</span></label>
+                                    <div class="flex-1 max-w-[400px]">
+                                        <div class="space-y-3">
+                                            <div>
+                                                <div class="mb-1 font-medium text-gray-700">WMTS</div>
+                                                <div class="flex gap-6">
+                                                    <div class="flex items-center gap-2">
+                                                        <input type="radio" id="wmts-mvt" name="wmts-format" class="text-primary focus:ring-primary" checked>
+                                                        <label for="wmts-mvt">MVT(pbf)</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div class="mb-1 font-medium text-gray-700">TMS</div>
+                                                <div class="flex gap-6">
+                                                    <div class="flex items-center gap-2">
+                                                        <input type="radio" id="tms-mvt" name="tms-format" class="text-primary focus:ring-primary">
+                                                        <label for="tms-mvt">MVT(pbf)</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div class="mb-1 font-medium text-gray-700">Google XYZ</div>
+                                                <div class="flex gap-6">
+                                                    <div class="flex items-center gap-2">
+                                                        <input type="radio" id="xyz-mvt" name="xyz-format" class="text-primary focus:ring-primary">
+                                                        <label for="xyz-mvt">MVT(pbf)</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="space-y-5 pt-2">
+                                
+                                <div class="flex items-center">
+                                    <label class="custom-label flex-shrink-0">网格集<span class="text-red-500 ml-1">*</span></label>
+                                    <div class="relative w-[240px]">
+                                        <select class="w-full h-9 pl-3 pr-8 custom-input bg-white appearance-none text-[14px]">
+                                            <option selected>WGS48 墨卡托投影</option>
+                                            <option>EPSG:3857 (Web Mercator)</option>
+                                        </select>
+                                        <i class="fa-solid fa-angle-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]"></i>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center">
+                                    <label class="custom-label flex-shrink-0">层级范围<span class="text-red-500 ml-1">*</span></label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="number" class="w-16 h-9 px-2 custom-input text-[14px] text-center" value="10" min="0" max="21">
+                                        <span class="text-gray-500 text-[14px]">至</span>
+                                        <input type="number" class="w-16 h-9 px-2 custom-input text-[14px] text-center" value="18" min="0" max="21">
+                                    </div>
+                                    <span class="help-text ml-2 whitespace-nowrap">有效层级范围 0-21 级</span>
+                                </div>
+
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+
+                <div class="px-8 py-6 border-t border-gray-100 bg-white flex justify-end">
+                    <div class="flex gap-3">
+                        <button class="bg-primary hover:bg-blue-600 text-white px-8 py-1.5 rounded-[2px] text-[14px] transition-all shadow-sm">
+                            确认
+                        </button>
+                        <button class="bg-white hover:bg-gray-50 text-gray-600 px-8 py-1.5 border border-gray-300 rounded-[2px] text-[14px] transition-all">
+                            取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // 多选下拉框功能
+        document.addEventListener('DOMContentLoaded', function() {
+            const input = document.getElementById('properties-input');
+            const dropdown = document.getElementById('properties-dropdown');
+            const selectedTags = document.getElementById('selected-tags');
+            
+            // 切换下拉框显示/隐藏
+            input.addEventListener('click', function() {
+                dropdown.classList.toggle('show');
+            });
+            
+            // 点击其他区域关闭下拉框
+            document.addEventListener('click', function(event) {
+                if (!input.contains(event.target) && !dropdown.contains(event.target)) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            
+            // 处理选项选择
+            const options = dropdown.querySelectorAll('.multiselect-option');
+            options.forEach(option => {
+                const checkbox = option.querySelector('input[type="checkbox"]');
+                checkbox.addEventListener('change', function() {
+                    const value = option.dataset.value;
+                    const text = option.querySelector('span').textContent;
+                    
+                    if (this.checked) {
+                        option.classList.add('selected');
+                        addTag(value, text);
+                    } else {
+                        option.classList.remove('selected');
+                        removeTag(value);
+                    }
+                });
+            });
+            
+            // 处理标签删除
+            selectedTags.addEventListener('click', function(event) {
+                if (event.target.classList.contains('tag-remove')) {
+                    const value = event.target.dataset.value;
+                    removeTag(value);
+                    
+                    // 取消对应复选框的选中状态
+                    const option = dropdown.querySelector(`.multiselect-option[data-value="${value}"]`);
+                    if (option) {
+                        const checkbox = option.querySelector('input[type="checkbox"]');
+                        checkbox.checked = false;
+                        option.classList.remove('selected');
+                    }
+                }
+            });
+            
+            // 添加标签
+            function addTag(value, text) {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.innerHTML = `${text} <span class="tag-remove" data-value="${value}">×</span>`;
+                selectedTags.appendChild(tag);
+            }
+            
+            // 移除标签
+            function removeTag(value) {
+                const tag = selectedTags.querySelector(`.tag-remove[data-value="${value}"]`);
+                if (tag) {
+                    tag.parentElement.remove();
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>
