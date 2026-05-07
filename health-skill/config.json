@@ -1,0 +1,112 @@
+{
+  "name": "health-skill",
+  "description": "健康管理与减脂追踪自动化技能",
+  "version": "2.0.0",
+
+  "query_rule": {
+    "enforce_conditional_query": true,
+    "note": "禁止全表扫描，必须使用条件查询：日期==YYYY-MM-DD AND 活动类型==饮食/健身"
+  },
+
+  "user_profile": {
+    "name": "JUN",
+    "age": 32,
+    "height": 161,
+    "weight": {
+      "current": 57,
+      "target": 50
+    },
+    "body_fat": {
+      "current": 29,
+      "target": 20
+    },
+    "medical_conditions": ["PCOS", "脊椎病", "糖尿病家族风险"],
+    "open_id": "ou_xxxx"
+  },
+
+  "nutrition_quota": {
+    "calories": {
+      "min": 1250,
+      "max": 1350,
+      "buffer": 100
+    },
+    "carbs": {
+      "min": 100,
+      "max": 130
+    },
+    "protein": {
+      "min": 70,
+      "max": 100
+    },
+    "fat": {
+      "min": 40,
+      "max": 55
+    }
+  },
+
+  "exercise_quota": {
+    "strength_training": {
+      "min": 3,
+      "max": 4,
+      "unit": "次/周"
+    },
+    "cardio": {
+      "min": 3,
+      "max": 5,
+      "unit": "次/周"
+    }
+  },
+
+  "bitable": {
+    "diary": {
+      "app_token": "xxxx",
+      "table_id": "xxxx"
+    },
+    "schedule": {
+      "app_token": "xxxx",
+      "table_id": "xxxx"
+    },
+    "food": {
+      "app_token": "xxxx",
+      "table_id": "xxxx"
+    }
+  },
+
+  "report_format": {
+    "version": "2.0",
+    "language": "简洁",
+    "scoring": {
+      "5_stars": "90-100",
+      "4_stars": "80-89",
+      "3_stars": "70-79",
+      "2_stars": "60-69",
+      "1_star": "<60"
+    },
+    "summary_table": {
+      "columns": ["营养素", "实际摄入", "状态"]
+    },
+    "meal_detail_table": {
+      "columns": ["餐次", "食物", "热量", "碳水", "蛋白", "脂肪", "评价"],
+      "one_row_per_food": true
+    }
+  },
+
+  "workflow": {
+    "daily_review_time": "23:30",
+    "report_dir": "./health-reports",
+    "push_target": "user:ou_xxxx"
+  },
+
+  "safety_rules": {
+    "sugar_control": "strict",
+    "forbidden_movements": ["大幅度扭转", "负重深蹲", "高强度HIIT"],
+    "recommended_exercises": ["死虫式", "平板支撑", "臀桥", "鸟狗式", "靠墙静蹲"],
+    "post_workout_sugar_limit": 30
+  },
+
+  "oil_calculation_rules": {
+    "light_stir_fry": 5,
+    "heavy_cooking": 10,
+    "rinsed": 2.5
+  }
+}
